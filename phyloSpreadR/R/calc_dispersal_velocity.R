@@ -11,7 +11,7 @@
 #' @export
 #'
 #' @examples
-calc_disperal_velocity <- function(tree_dat = NA, weighted = F) {
+calc_dispersal_velocity <- function(tree_dat = NA, weighted = F) {
   if (weighted == F) {
     mean(beast_dat$velocity, na.rm = T)
   } else if (weighted == T) {
