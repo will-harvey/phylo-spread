@@ -1,0 +1,11 @@
+Package: phyloSpreadR
+Type: Package
+Title: Analysis of Phylogenetic Trees Describing Spatial Spread
+Version: 0.1.0
+Author: Will Harvey
+Maintainer: Will Harvey <wharvey@ed.ac.uk>
+Description: Package exists to provide functions that allow analysis of the spread of an organism through time and space in cases where a phylogenetic tree describes the process (often envisioned as spread of a pathogen during an epidemic)
+    Many functions are for post-hoc analysis of continuous phylogeographic analysis where dates and locations have been estimated for interal nodes of the phylogeny.
+License: What license is it under?
+Encoding: UTF-8
+LazyData: true
