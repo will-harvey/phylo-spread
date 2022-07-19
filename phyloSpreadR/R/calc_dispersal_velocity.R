@@ -6,6 +6,7 @@
 #'
 #' @param tree_dat dataframe with columns velocity and branch length
 #' @param weighted logical, should function return un-weighted or weighted statistic
+#' @param target_node single clade-defining node or set of nodes can be supplied
 #'
 #' @return
 #' @export
