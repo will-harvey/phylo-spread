@@ -1,3 +1,11 @@
+#' Process spatio-temporal information
+#'
+#' @param tree_dat dataframe with tree structure and columns location1, location2, and branch.length
+#'
+#' @return
+#' @export
+#'
+#' @examples
 process_spatiotemporal <- function(tree_dat = NA) {
 
   # Use lat-lon in tree_dat to calc. distances covered by each branch
