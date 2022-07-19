@@ -1,0 +1,220 @@
+---
+title: "Dispersal statistics"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{dispersal_statistics}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  echo = TRUE,
+  fig.width = 7.5,
+  fig.height = 4.5
+)
+```
+
+```{r, message = FALSE}
+# load the package into R
+library(phyloSpreadR)
+
+# load other useful packages
+library(ggtree)
+library(ggplot2)
+library(toolkitSeqTree)
+library(RColorBrewer)
+```
+
+First we read a tree into R and "fortify" using `ggtree::fortify()` the tree object which produces a data frame with one row representing each tree node.
+
+```{r}
+beast <- treeio::read.beast('../inst/extdata/study2.mcc.trees')
+beast_dat <- fortify(beast)
+```
+
+This script reads in maximum clade credibility tree from continuous BEAST analysis carried out in beast. Each node of the phylogeny is labelled with: `branch.length`, the time duration of branch in years; `height`, the time in years before the most recent sampling date (MRSD); `location1`, the sampled or estimated latitude; and `location2`, the sampled or estimated longitude.
+
+### Process spatio-temporal information
+
+Dates for each node are calculated using `height` and the most recent sampling date (MRSD).
+
+```{r}
+MRSD <- "2017-12-11"
+beast_dat$date <- Date2decimal(MRSD) - beast_dat$height
+```
+
+Distances are calculated from geographic coordinates.
+
+```{r}
+beast_dat <- process_spatiotemporal(beast_dat)
+root_node <- beast_dat$node[beast_dat$node == beast_dat$parent]
+```
+
+#### Distances
+
+Distance covered per branch can now be plotted for each branch/node.
+
+```{r}
+## Summary of distribution of per-branch distances
+summary(beast_dat$gcd)
+ggplot(beast_dat[beast_dat$node != root_node,], aes(x = gcd)) +
+  geom_histogram(bins = 50) +
+  labs(x = "Distance (km)", y = "Frequency") +
+  theme_minimal()
+
+## Colour branches on tree by distance covered
+ggtree(beast, mrsd = MRSD, aes(col = beast_dat$gcd)) +
+  scale_colour_gradientn(colours = brewer.pal(11, "Spectral"),
+                         name = 'Distance\n(km)') +
+  theme_tree2()
+```
+
+#### Distance to epidemic source
+
+The function `process_spatiotemporal()` also calculates the distance from the estimated location of the root for the phylogeny for each other node in the tree.
+
+```{r}
+summary(beast_dat$dist_root)
+ggplot(beast_dat, aes(x = dist_root)) +
+  geom_histogram(bins = 30) +
+  labs(x = "Distance from root (km)", y = "Frequency") +
+  theme_minimal()
+
+## Colour nodes on tree by distance to root
+ggtree(beast, mrsd = MRSD, col = 'grey40') +
+  geom_point(aes(fill = beast_dat$dist_root), pch = 21, size = 2) +
+  scale_fill_gradientn(colours = brewer.pal(11, "Spectral"),
+                       name = 'Distance\nfrom\nroot (km)') +
+  theme_tree2()
+```
+
+#### Epidemic wavefront
+
+For each node, distances from the root and the dates of internal nodes can be used to estimate the maximal spatial wavefront distance from the epidemic origin through time.
+
+```{r}
+ggplot(beast_dat, aes(x = date, y = wavefront)) +
+  geom_line() +
+  labs(x = 'Date', y = 'Wavefront distance (km)') +
+  theme_minimal()
+```
+
+This graph would appear smoother when based on multiple trees in posterior sample rather than just the maximum clade credibility.
+
+#### Velocity and diffusion
+
+The function `process_spatiotemporal()` also calculates the velocity and diffusion associated with each branch. Velocity is calculated as distance / time for the branch whereas diffusion is calculated as distance^4 / time^2.
+
+```{r}
+## velocity on tree
+ggtree(beast, mrsd = MRSD, aes(col = beast_dat$velocity / 365)) +
+  scale_colour_gradientn(colours = brewer.pal(11, "Spectral"), trans = 'log',
+                       name = 'Velocity\n(km/day)') +
+  theme_tree2()
+
+## diffusion on tree
+ggtree(beast, mrsd = MRSD, aes(col = beast_dat$diffusion / 365)) +
+  scale_colour_gradientn(colours = brewer.pal(11, "Spectral"), trans = 'log',
+                       name = 'Diffusion\n(km^2/day)') +
+  theme_tree2()
+
+```
+
+### Dispersal statistics
+
+Each branch represnts a reconstructed movement with a distance, duration, velocity and diffusion rate. Summary statistics can be calculated using functions
+
+#### Weighted and un-weighted dispersal velocity
+
+```{r}
+calc_dispersal_velocity(beast_dat)
+
+calc_dispersal_velocity(beast_dat, weighted = TRUE)
+```
+
+#### Weighted and un-weighted diffusion rate
+
+```{r}
+calc_diffusion_coef(beast_dat)
+
+calc_diffusion_coef(beast_dat, weighted = TRUE)
+```
+
+```{r}
+dispersal_stats(beast_dat)
+```
+
+### Clade-specific statistics
+
+It may be desirable to calculate statistics for a specific clade in the phylogeny or even another selection of branches selected using an alternative criterion.
+
+Each node of the tree is associated with a node number:
+
+```{r}
+ggtree(beast) +
+  geom_text(aes(label=node))
+```
+
+Clades defined by certain nodes can be subsetted using `toolkitSeqTree::node_descendants`
+
+```{r}
+descendants_127 <- node_descendants(beast_dat, node_id = 127)
+descendants_93 <- node_descendants(beast_dat, node_id = 93)
+
+ggtree(beast) +
+  geom_point(data = subset(beast_dat, node == 127),
+             col = 'firebrick2', size = 4) +
+  geom_point(data = subset(beast_dat, node %in% descendants_127),
+             col = 'firebrick2', shape = 18, size = 2) +
+  geom_point(data = subset(beast_dat, node == 93),
+             col = 'dodgerblue3', size = 4) +
+  geom_point(data = subset(beast_dat, node %in% descendants_93),
+             col = 'dodgerblue3', shape = 18, size = 2)
+```
+
+The functions used above to calculate dispersal statistics can be supplied with either a vector of nodes or a single target node which will be used to pull out a clade.
+
+```{r}
+# by default function returns stat for whole tree
+calc_dispersal_velocity(beast_dat, weighted = TRUE)
+
+# value for either of the clades plotted above can be returned by
+# or the node defining them
+calc_dispersal_velocity(beast_dat, weighted = TRUE, target_node = descendants_127)
+calc_dispersal_velocity(beast_dat, weighted = TRUE, target_node = 127)
+```
+
+Target node can also be supplied to `dispersal_stats`.
+
+```{r}
+dispersal_stats(beast_dat)
+dispersal_stats(beast_dat, target_node = 127)
+dispersal_stats(beast_dat, target_node = 98)
+```
+
+
+### Clade-specific wavefront
+
+In addition to calculating dispersal summary statistics for a given clade, it might be desirable to calculate the distance from the 'root' of a clade and the epidemic wavefront within the clade.
+
+```{r}
+beast_dat <- clade_wavefront(beast_dat, target_node = 127)
+
+## Colour nodes on tree by distance to root
+ggtree(beast, mrsd = MRSD, col = 'grey40') +
+  geom_point(aes(fill = beast_dat$dist_node_127),
+             pch = 21, size = 2) +
+  scale_fill_gradientn(colours = brewer.pal(11, "Spectral"),
+                       name = 'Distance\nfrom\ntarget\nnode (km)',
+                       na.value = 'grey80') +
+  theme_tree2()
+
+ggplot(beast_dat[is.na(beast_dat$wavefront_node_127) == F,],
+       aes(x = date, y = wavefront_node_127)) +
+  geom_line() +
+  labs(x = 'Date', y = 'Clade-specific wavefront distance (km)') +
+  theme_minimal()
+```
