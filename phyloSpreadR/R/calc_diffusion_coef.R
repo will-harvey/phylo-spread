@@ -12,7 +12,8 @@
 #' @export
 #'
 #' @examples
-calc_diffusion_coef <- function(tree_dat = NA, weighted = F) {
+calc_diffusion_coef <- function(tree_dat = NA, weighted = F,
+                                target_node = NULL) {
 
     # if target node is null, calc. stat for whole tree
     if (is.null(target_node) == T) {
