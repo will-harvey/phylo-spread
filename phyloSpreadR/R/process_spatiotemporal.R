@@ -5,7 +5,6 @@
 #' @return
 #' @export
 #'
-#' @examples
 process_spatiotemporal <- function(tree_dat = NA) {
 
   # Use lat-lon in tree_dat to calc. distances covered by each branch
