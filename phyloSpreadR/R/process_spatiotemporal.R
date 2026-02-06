@@ -1,17 +1,32 @@
 #' Process spatio-temporal information
 #'
-#' @param tree_dat dataframe with tree structure and columns location1, location2, and branch.length
+#' Given a dataframe describing the structure of a tree in which internal nodes
+#' have a location estimated by a continuous phylogeographical analysis
+#' performed using BEAST.
 #'
-#' @return
+#' Function identifies the lat-lon of each nodes parental node, then calculates
+#' columns for flat distance, great circle distance (gcd), distance (gcd) from
+#' root and wavefront (the max. distance from the root through time).
+#'
+#' @param tree_dat DF with tree structure and columns location1, location2, and branch.length (and date frac if parental_columns = TRUE)
+#' @param parental_columns logical, should returned DF have columns with parental lat lon and date_frac
+#'
+#' @return Dataframe with new columns on geo distances etc.
 #' @export
 #'
-process_spatiotemporal <- function(tree_dat = NA) {
+process_spatiotemporal <- function(tree_dat = NA, parental_columns = TRUE) {
 
   # Use lat-lon in tree_dat to calc. distances covered by each branch
   # flat distance, great circle distance (gcd), and gcd from root
+  if (parental_columns == TRUE) {
+    tree_dat$location1_parent <- NA
+    tree_dat$location2_parent <- NA
+    tree_dat$date_frac_parent <- NA
+  }
   tree_dat$dist <- NA
   tree_dat$gcd <- NA
   tree_dat$dist_root <- NA
+  tree_dat$wavefront <- NA
 
   # dist_root requires lat and long for root (node == parent)
   lat_root <- tree_dat$location1[tree_dat$node == tree_dat$parent]
@@ -28,6 +43,13 @@ process_spatiotemporal <- function(tree_dat = NA) {
     lat2 <- as.numeric(as.character(tree_dat$location1[tree_dat$node == curr_parent]))
     long2 <- as.numeric(as.character(tree_dat$location2[tree_dat$node == curr_parent]))
 
+    # save parent location
+    if (parental_columns == TRUE) {
+      tree_dat$location1_parent[i] <- lat2
+      tree_dat$location2_parent[i] <- long2
+      tree_dat$date_frac_parent[i] <- as.numeric(as.character(tree_dat$date_frac[tree_dat$node == curr_parent]))
+    }
+
     # Fill dist, gcd and gcd to root (dist_root)
     tree_dat$dist[i] <- sqrt((lat1-lat2)^2 + (long1-long2)^2)
     tree_dat$gcd[i] <- great_circle_dist(lat1, long1, lat2, long2)
@@ -40,7 +62,6 @@ process_spatiotemporal <- function(tree_dat = NA) {
   tree_dat$dist_root[tree_dat$node == tree_dat$parent] <- 0
 
   # Now that dist_root is complete, calc. wavefront (max dist at time of node)
-  tree_dat$wavefront <- NA
   for (i in 1:nrow(tree_dat)) {
     tree_dat$wavefront[i] <-
       max(tree_dat$dist_root[tree_dat$date <= tree_dat$date[i]])
